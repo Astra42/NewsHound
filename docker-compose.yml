@@ -1,6 +1,25 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: newshound-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: newshound
+      POSTGRES_PASSWORD: newshound_secret
+      POSTGRES_DB: newshound
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newshound -d newshound"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - newshound-network
+
   qdrant:
     image: qdrant/qdrant:latest
     container_name: newshound-qdrant
@@ -12,8 +31,100 @@ services:
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
     restart: unless-stopped
+    networks:
+      - newshound-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: newshound-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # PostgreSQL connection
+      - DATABASE_URL=postgresql://newshound:newshound_secret@postgres:5432/newshound
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=newshound
+      - POSTGRES_PASSWORD=newshound_secret
+      - POSTGRES_DB=newshound
+      
+      # Qdrant connection
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=news
+      
+      # API Settings
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_DEBUG=false
+      
+      # LLM Settings
+      - LLM_MODEL=mistral-small-latest
+      - LLM_TIMEOUT=60.0
+      - LLM_MAX_RETRIES=3
+      
+      # Embedding Settings
+      - EMBEDDING_MODEL=sergeyzh/rubert-mini-frida
+      - EMBEDDING_DEVICE=cpu
+      
+      # RAG Settings
+      - RETRIEVAL_K=5
+      - CHUNK_SIZE=500
+      - CHUNK_OVERLAP=50
+      
+      # Telegram Settings
+      - TELEGRAM_MESSAGE_LIMIT=100
+    env_file:
+      - .env
+    volumes:
+      - telegram_sessions:/app/sessions
+      - huggingface_cache:/app/.cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - newshound-network
+
+  # ===========================================================================
+  # Telegram Bot
+  # ===========================================================================
+  # bot:
+  #   build:
+  #     context: .
+  #     dockerfile: bot/Dockerfile
+  #   container_name: newshound-bot
+  #   environment:
+  #     - BACKEND_API_URL=http://backend:8000
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   networks:
+  #     - newshound-network
 
 volumes:
+  postgres_data:
+    driver: local
   qdrant_data:
+    driver: local
+  telegram_sessions:
+    driver: local
+  huggingface_cache:
+    driver: local
 
-
+networks:
+  newshound-network:
+    driver: bridge
