@@ -4,10 +4,10 @@ import time
 from datetime import datetime
 from typing import List, Optional
 
-from backend.domain.completion import SummaryRequest, SummaryResponse
-from backend.domain.document import SearchResult
-from backend.services.interfaces.llm import ILLMService
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
+from domain.completion import SummaryRequest, SummaryResponse
+from domain.document import SearchResult
+from services.interfaces.llm import ILLMService
+from services.interfaces.vectorstore import IVectorStoreRepository
 
 SUMMARY_SYSTEM_PROMPT = """Ты — AI-ассистент для анализа новостей из Telegram-каналов.
 Твоя задача — создать краткое и информативное саммари новостей за указанный период.
@@ -38,7 +38,6 @@ SUMMARY_PROMPT_TEMPLATE = """Новости за период {period}:
 
 
 class SummaryService:
-
     def __init__(
         self,
         llm_service: ILLMService,

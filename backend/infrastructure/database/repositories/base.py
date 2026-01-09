@@ -2,11 +2,10 @@
 
 from typing import Generic, List, Optional, Type, TypeVar
 
+from infrastructure.database.connection import Base
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-
-from backend.infrastructure.database.connection import Base
 
 ModelType = TypeVar("ModelType", bound=Base)
 

@@ -2,14 +2,13 @@
 Summary endpoints.
 """
 
+from api.dependencies import get_summary_service
+from api.schemas.common import ErrorResponseSchema
+from api.schemas.summary import SummaryRequestSchema, SummaryResponseSchema
+from core.exceptions import LLMException
+from domain.completion import SummaryRequest
 from fastapi import APIRouter, Depends, HTTPException, status
-
-from backend.api.dependencies import get_summary_service
-from backend.api.schemas.common import ErrorResponseSchema
-from backend.api.schemas.summary import SummaryRequestSchema, SummaryResponseSchema
-from backend.core.exceptions import LLMException
-from backend.domain.completion import SummaryRequest
-from backend.services.summary_service import SummaryService
+from services.summary_service import SummaryService
 
 router = APIRouter()
 

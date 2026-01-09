@@ -6,17 +6,17 @@ Database repositories - слой доступа к данным PostgreSQL.
 - Single Responsibility: каждый репозиторий работает с одной сущностью
 """
 
-from backend.infrastructure.database.repositories.channel_repository import (
-    ChannelRepository,
+from infrastructure.database.repositories.channel_repository import (
     AsyncChannelRepository,
+    ChannelRepository,
 )
-from backend.infrastructure.database.repositories.user_repository import (
-    UserRepository,
-    AsyncUserRepository,
-)
-from backend.infrastructure.database.repositories.post_repository import (
-    PostRepository,
+from infrastructure.database.repositories.post_repository import (
     AsyncPostRepository,
+    PostRepository,
+)
+from infrastructure.database.repositories.user_repository import (
+    AsyncUserRepository,
+    UserRepository,
 )
 
 __all__ = [

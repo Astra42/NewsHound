@@ -2,17 +2,16 @@
 
 from typing import List, Optional
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session, selectinload
-
-from backend.domain.channel import Channel, ChannelStatus
-from backend.infrastructure.database.models import ChannelModel, UserModel
-from backend.infrastructure.database.repositories.base import (
+from domain.channel import Channel, ChannelStatus
+from infrastructure.database.models import ChannelModel, UserModel
+from infrastructure.database.repositories.base import (
     AsyncBaseRepository,
     BaseRepository,
 )
-from backend.services.interfaces.database import IUserRepository
+from services.interfaces.database import IUserRepository
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, selectinload
 
 
 class UserRepository(BaseRepository[UserModel]):

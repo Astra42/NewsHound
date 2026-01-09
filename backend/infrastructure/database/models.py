@@ -11,6 +11,7 @@ SQLAlchemy models для PostgreSQL.
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from infrastructure.database.connection import Base
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -24,8 +25,6 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from backend.infrastructure.database.connection import Base
 
 # Many-to-many связь пользователей и каналов
 user_channels = Table(

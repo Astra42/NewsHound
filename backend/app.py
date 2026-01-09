@@ -10,13 +10,12 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 import uvicorn
+from api.dependencies import shutdown_services, startup_services
+from api.routes import router as api_router
+from core.config import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend.api.dependencies import shutdown_services, startup_services
-from backend.api.routes import router as api_router
-from backend.core.config import settings
-from backend.infrastructure.database.connection import close_db, init_db
+from infrastructure.database.connection import close_db, init_db
 
 
 @asynccontextmanager
@@ -90,6 +89,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
         openapi_url="/openapi.json",
         lifespan=lifespan,
+        redirect_slashes=False,  # Отключаем автоматические редиректы по слэшам
     )
 
     # CORS Middleware
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         sys.path.insert(0, str(project_root))
 
     uvicorn.run(
-        "backend.app:app",
+        "app:app",
         host=settings.api_host,
         port=settings.api_port,
         reload=settings.api_debug,

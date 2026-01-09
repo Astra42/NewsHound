@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import List, Optional
 
-from backend.domain.channel import Channel
-from backend.domain.document import Document
+from domain.channel import Channel
+from domain.document import Document
 
 
 class IChannelRepository(ABC):

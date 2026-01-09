@@ -2,9 +2,9 @@
 
 from typing import Any, Dict, List, Optional
 
-from backend.core.config import settings
-from backend.domain.document import SearchResult
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
+from core.config import settings
+from domain.document import SearchResult
+from services.interfaces.vectorstore import IVectorStoreRepository
 
 
 class RetrievalService:

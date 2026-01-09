@@ -5,15 +5,15 @@ Domain Layer - доменные модели и сущности.
 - Single Responsibility: каждая модель представляет одну сущность
 """
 
-from backend.domain.document import Document, DocumentMetadata, SearchResult
-from backend.domain.channel import Channel, ChannelStatus
-from backend.domain.completion import (
+from domain.channel import Channel, ChannelStatus
+from domain.completion import (
     CompletionRequest,
     CompletionResponse,
+    SourceReference,
     SummaryRequest,
     SummaryResponse,
-    SourceReference,
 )
+from domain.document import Document, DocumentMetadata, SearchResult
 
 __all__ = [
     "Document",
@@ -27,4 +27,3 @@ __all__ = [
     "SummaryResponse",
     "SourceReference",
 ]
-

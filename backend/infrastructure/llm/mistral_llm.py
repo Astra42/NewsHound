@@ -11,15 +11,14 @@ import time
 from typing import List, Optional
 
 import httpx
-from langchain_mistralai import ChatMistralAI
-
-from backend.core.config import settings
-from backend.core.exceptions import (
+from core.config import settings
+from core.exceptions import (
     LLMException,
     LLMRateLimitException,
     LLMTimeoutException,
 )
-from backend.services.interfaces.llm import ILLMService
+from langchain_mistralai import ChatMistralAI
+from services.interfaces.llm import ILLMService
 
 # Промпты
 DEFAULT_SYSTEM_PROMPT = """Ты — AI-ассистент для анализа новостей из Telegram-каналов.

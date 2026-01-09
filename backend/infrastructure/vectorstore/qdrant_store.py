@@ -11,6 +11,11 @@ import asyncio
 import uuid
 from typing import Any, Dict, List, Optional
 
+from core.config import settings
+from core.exceptions import (
+    VectorStoreConnectionException,
+)
+from domain.document import Document, DocumentMetadata, SearchResult
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -20,14 +25,8 @@ from qdrant_client.models import (
     PointStruct,
     VectorParams,
 )
-
-from backend.core.config import settings
-from backend.core.exceptions import (
-    VectorStoreConnectionException,
-)
-from backend.domain.document import Document, DocumentMetadata, SearchResult
-from backend.services.interfaces.embeddings import IEmbeddingService
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
+from services.interfaces.embeddings import IEmbeddingService
+from services.interfaces.vectorstore import IVectorStoreRepository
 
 
 class QdrantVectorStoreRepository(IVectorStoreRepository):

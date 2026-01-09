@@ -2,17 +2,16 @@
 Completion (RAG) endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-
-from backend.api.dependencies import get_completion_service
-from backend.api.schemas.common import ErrorResponseSchema
-from backend.api.schemas.completion import (
+from api.dependencies import get_completion_service
+from api.schemas.common import ErrorResponseSchema
+from api.schemas.completion import (
     CompletionRequestSchema,
     CompletionResponseSchema,
 )
-from backend.core.exceptions import LLMException, RetrievalException
-from backend.domain.completion import CompletionRequest
-from backend.services.completion_service import CompletionService
+from core.exceptions import LLMException, RetrievalException
+from domain.completion import CompletionRequest
+from fastapi import APIRouter, Depends, HTTPException, status
+from services.completion_service import CompletionService
 
 router = APIRouter()
 

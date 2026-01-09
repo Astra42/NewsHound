@@ -2,22 +2,22 @@
 Pydantic схемы для API запросов и ответов.
 """
 
-from backend.api.schemas.completion import (
+from api.schemas.channels import (
+    AddChannelRequestSchema,
+    ChannelListResponseSchema,
+    ChannelResponseSchema,
+)
+from api.schemas.common import (
+    ErrorResponseSchema,
+    HealthResponseSchema,
+)
+from api.schemas.completion import (
     CompletionRequestSchema,
     CompletionResponseSchema,
 )
-from backend.api.schemas.summary import (
+from api.schemas.summary import (
     SummaryRequestSchema,
     SummaryResponseSchema,
-)
-from backend.api.schemas.channels import (
-    AddChannelRequestSchema,
-    ChannelResponseSchema,
-    ChannelListResponseSchema,
-)
-from backend.api.schemas.common import (
-    ErrorResponseSchema,
-    HealthResponseSchema,
 )
 
 __all__ = [
@@ -31,4 +31,3 @@ __all__ = [
     "ErrorResponseSchema",
     "HealthResponseSchema",
 ]
-

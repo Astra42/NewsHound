@@ -6,7 +6,6 @@ API Layer - FastAPI роутеры и схемы.
 - Dependency Inversion: зависит от сервисов через DI
 """
 
-from backend.api.routes import router
+from api.routes import router
 
 __all__ = ["router"]
-

@@ -3,14 +3,14 @@
 import time
 from typing import List
 
-from backend.domain.completion import (
+from domain.completion import (
     CompletionRequest,
     CompletionResponse,
     SourceReference,
 )
-from backend.domain.document import SearchResult
-from backend.services.interfaces.llm import ILLMService
-from backend.services.retrieval_service import RetrievalService
+from domain.document import SearchResult
+from services.interfaces.llm import ILLMService
+from services.retrieval_service import RetrievalService
 
 
 class CompletionService:

@@ -2,17 +2,17 @@
 Database infrastructure - PostgreSQL.
 """
 
-from backend.infrastructure.database.connection import (
-    get_db,
-    get_async_db,
-    engine,
-    async_engine,
+from infrastructure.database.connection import (
     Base,
+    async_engine,
+    engine,
+    get_async_db,
+    get_db,
 )
-from backend.infrastructure.database.models import (
+from infrastructure.database.models import (
     ChannelModel,
-    UserModel,
     PostModel,
+    UserModel,
 )
 
 __all__ = [

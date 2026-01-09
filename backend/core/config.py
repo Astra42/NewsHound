@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     embedding_device: str = Field(default="cpu", alias="EMBEDDING_DEVICE")
 
     database_url: str = Field(
-        default="postgresql://newshound:newshound_secret@localhost:5432/newshound",
+        default="postgresql://newshound:newshound_secret@postgres:5432/newshound",
         alias="DATABASE_URL",
     )
-    postgres_host: str = Field(default="localhost", alias="POSTGRES_HOST")
+    postgres_host: str = Field(default="postgres", alias="POSTGRES_HOST")
     postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
     postgres_user: str = Field(default="newshound", alias="POSTGRES_USER")
     postgres_password: str = Field(
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     )
     postgres_db: str = Field(default="newshound", alias="POSTGRES_DB")
 
-    qdrant_host: str = Field(default="localhost", alias="QDRANT_HOST")
+    qdrant_host: str = Field(default="qdrant", alias="QDRANT_HOST")
     qdrant_port: int = Field(default=6333, alias="QDRANT_PORT")
     qdrant_collection: str = Field(default="news", alias="QDRANT_COLLECTION")
 

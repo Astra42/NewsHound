@@ -2,23 +2,19 @@
 Alembic environment configuration.
 """
 
-from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
-from alembic import context
-
 # Импортируем наши модели и настройки
 import sys
+from logging.config import fileConfig
 from pathlib import Path
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Добавляем корень проекта в sys.path
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
-from backend.core.config import settings
-from backend.infrastructure.database.connection import Base
-from backend.infrastructure.database.models import UserModel, ChannelModel, PostModel
+from core.config import settings
+from infrastructure.database.connection import Base
 
 # this is the Alembic Config object
 config = context.config
@@ -71,7 +67,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, 
+            connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
         )

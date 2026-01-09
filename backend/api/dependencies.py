@@ -4,35 +4,34 @@ from functools import lru_cache
 from typing import AsyncGenerator
 
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.infrastructure.database.connection import AsyncSessionLocal
-from backend.infrastructure.database.repositories.channel_repository import (
+from infrastructure.database.connection import AsyncSessionLocal
+from infrastructure.database.repositories.channel_repository import (
     AsyncChannelRepository,
 )
-from backend.infrastructure.database.repositories.post_repository import (
+from infrastructure.database.repositories.post_repository import (
     AsyncPostRepository,
 )
-from backend.infrastructure.database.repositories.user_repository import (
+from infrastructure.database.repositories.user_repository import (
     AsyncUserRepository,
 )
-from backend.infrastructure.embeddings.huggingface_embeddings import (
+from infrastructure.embeddings.huggingface_embeddings import (
     HuggingFaceEmbeddingService,
 )
-from backend.infrastructure.llm.mistral_llm import MistralLLMService
-from backend.infrastructure.telegram.telethon_parser import TelethonChannelParser
-from backend.infrastructure.vectorstore.qdrant_store import QdrantVectorStoreRepository
-from backend.services.channel_service import ChannelService
-from backend.services.completion_service import CompletionService
-from backend.services.interfaces.database import (
+from infrastructure.llm.mistral_llm import MistralLLMService
+from infrastructure.telegram.telethon_parser import TelethonChannelParser
+from infrastructure.vectorstore.qdrant_store import QdrantVectorStoreRepository
+from services.channel_service import ChannelService
+from services.completion_service import CompletionService
+from services.interfaces.database import (
     IChannelRepository,
     IPostRepository,
 )
-from backend.services.interfaces.embeddings import IEmbeddingService
-from backend.services.interfaces.llm import ILLMService
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
-from backend.services.retrieval_service import RetrievalService
-from backend.services.summary_service import SummaryService
+from services.interfaces.embeddings import IEmbeddingService
+from services.interfaces.llm import ILLMService
+from services.interfaces.vectorstore import IVectorStoreRepository
+from services.retrieval_service import RetrievalService
+from services.summary_service import SummaryService
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

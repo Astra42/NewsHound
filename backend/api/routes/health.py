@@ -2,11 +2,10 @@
 Health check endpoints.
 """
 
+from api.dependencies import get_vectorstore_repository
+from api.schemas.common import HealthResponseSchema
 from fastapi import APIRouter, Depends
-
-from backend.api.dependencies import get_vectorstore_repository
-from backend.api.schemas.common import HealthResponseSchema
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
+from services.interfaces.vectorstore import IVectorStoreRepository
 
 router = APIRouter()
 

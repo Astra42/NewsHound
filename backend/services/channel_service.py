@@ -3,17 +3,17 @@
 from datetime import datetime
 from typing import List, Optional
 
-from backend.core.config import settings
-from backend.core.exceptions import (
+from core.config import settings
+from core.exceptions import (
     ChannelAlreadyExistsException,
     ChannelNotFoundException,
     TelegramParserException,
 )
-from backend.domain.channel import Channel, ChannelStatus
-from backend.domain.document import Document
-from backend.services.interfaces.channel_parser import IChannelParser
-from backend.services.interfaces.database import IChannelRepository, IPostRepository
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
+from domain.channel import Channel, ChannelStatus
+from domain.document import Document
+from services.interfaces.channel_parser import IChannelParser
+from services.interfaces.database import IChannelRepository, IPostRepository
+from services.interfaces.vectorstore import IVectorStoreRepository
 
 
 class ChannelService:

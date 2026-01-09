@@ -3,17 +3,16 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import and_, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-
-from backend.domain.document import Document, DocumentMetadata
-from backend.infrastructure.database.models import PostModel
-from backend.infrastructure.database.repositories.base import (
+from domain.document import Document, DocumentMetadata
+from infrastructure.database.models import PostModel
+from infrastructure.database.repositories.base import (
     AsyncBaseRepository,
     BaseRepository,
 )
-from backend.services.interfaces.database import IPostRepository
+from services.interfaces.database import IPostRepository
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 
 class PostRepository(BaseRepository[PostModel]):

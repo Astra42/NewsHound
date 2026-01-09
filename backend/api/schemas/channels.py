@@ -5,9 +5,8 @@
 from datetime import datetime
 from typing import List, Optional
 
+from domain.channel import ChannelStatus
 from pydantic import BaseModel, Field
-
-from backend.domain.channel import ChannelStatus
 
 
 class AddChannelRequestSchema(BaseModel):

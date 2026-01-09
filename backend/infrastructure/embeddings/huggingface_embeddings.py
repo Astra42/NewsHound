@@ -10,10 +10,9 @@ import asyncio
 from functools import lru_cache
 from typing import List, Optional
 
+from core.config import settings
 from langchain_community.embeddings import HuggingFaceEmbeddings
-
-from backend.core.config import settings
-from backend.services.interfaces.embeddings import IEmbeddingService
+from services.interfaces.embeddings import IEmbeddingService
 
 
 class HuggingFaceEmbeddingService(IEmbeddingService):

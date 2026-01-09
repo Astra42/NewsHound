@@ -6,15 +6,15 @@
 - Dependency Inversion: зависимость от абстракций, не от реализаций
 """
 
-from backend.services.interfaces.llm import ILLMService
-from backend.services.interfaces.embeddings import IEmbeddingService
-from backend.services.interfaces.vectorstore import IVectorStoreRepository
-from backend.services.interfaces.channel_parser import IChannelParser
-from backend.services.interfaces.database import (
+from services.interfaces.channel_parser import IChannelParser
+from services.interfaces.database import (
     IChannelRepository,
     IPostRepository,
     IUserRepository,
 )
+from services.interfaces.embeddings import IEmbeddingService
+from services.interfaces.llm import ILLMService
+from services.interfaces.vectorstore import IVectorStoreRepository
 
 __all__ = [
     "ILLMService",
@@ -25,4 +25,3 @@ __all__ = [
     "IPostRepository",
     "IUserRepository",
 ]
-

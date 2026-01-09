@@ -2,22 +2,22 @@
 Channel management endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-
-from backend.api.dependencies import get_channel_service
-from backend.api.schemas.channels import (
+from api.dependencies import get_channel_service
+from api.schemas.channels import (
     AddChannelRequestSchema,
     ChannelListResponseSchema,
     ChannelResponseSchema,
 )
-from backend.api.schemas.common import ErrorResponseSchema, SuccessResponseSchema
-from backend.core.exceptions import (
+from api.schemas.common import ErrorResponseSchema, SuccessResponseSchema
+from core.exceptions import (
     ChannelAlreadyExistsException,
     ChannelNotFoundException,
     InvalidChannelLinkException,
+    TelegramAuthException,
     TelegramParserException,
 )
-from backend.services.channel_service import ChannelService
+from fastapi import APIRouter, Depends, HTTPException, status
+from services.channel_service import ChannelService
 
 router = APIRouter(prefix="/channels")
 
@@ -62,6 +62,10 @@ async def list_channels(
     status_code=status.HTTP_201_CREATED,
     responses={
         400: {"model": ErrorResponseSchema, "description": "Невалидная ссылка"},
+        401: {
+            "model": ErrorResponseSchema,
+            "description": "Требуется авторизация Telegram",
+        },
         409: {"model": ErrorResponseSchema, "description": "Канал уже существует"},
         503: {"model": ErrorResponseSchema, "description": "Telegram недоступен"},
     },
@@ -118,6 +122,15 @@ async def add_channel(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "InvalidLink",
+                "message": str(e),
+            },
+        )
+    except TelegramAuthException as e:
+        # Ошибка авторизации - нужен код для подтверждения
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": "TelegramAuth",
                 "message": str(e),
             },
         )

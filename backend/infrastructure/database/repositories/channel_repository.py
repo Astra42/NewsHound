@@ -2,17 +2,16 @@
 
 from typing import List, Optional
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
-
-from backend.domain.channel import Channel, ChannelStatus
-from backend.infrastructure.database.models import ChannelModel
-from backend.infrastructure.database.repositories.base import (
+from domain.channel import Channel, ChannelStatus
+from infrastructure.database.models import ChannelModel
+from infrastructure.database.repositories.base import (
     AsyncBaseRepository,
     BaseRepository,
 )
-from backend.services.interfaces.database import IChannelRepository
+from services.interfaces.database import IChannelRepository
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 
 class ChannelRepository(BaseRepository[ChannelModel]):

@@ -7,11 +7,10 @@ Database connection configuration.
 
 from typing import AsyncGenerator, Generator
 
+from core.config import settings
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
-
-from backend.core.config import settings
 
 # Sync engine
 engine = create_engine(
