@@ -11,18 +11,21 @@ from core.exceptions import (
 )
 from domain.channel import Channel, ChannelStatus
 from domain.document import Document
-from services.interfaces.channel_parser import IChannelParser
-from services.interfaces.database import IChannelRepository, IPostRepository
-from services.interfaces.vectorstore import IVectorStoreRepository
+from infrastructure.database.repositories.channel_repository import (
+    AsyncChannelRepository,
+)
+from infrastructure.database.repositories.post_repository import AsyncPostRepository
+from infrastructure.telegram.telethon_parser import TelethonChannelParser
+from infrastructure.vectorstore.qdrant_store import QdrantVectorStoreRepository
 
 
 class ChannelService:
     def __init__(
         self,
-        channel_parser: IChannelParser,
-        vectorstore_repository: IVectorStoreRepository,
-        channel_repository: IChannelRepository,
-        post_repository: IPostRepository,
+        channel_parser: TelethonChannelParser,
+        vectorstore_repository: QdrantVectorStoreRepository,
+        channel_repository: AsyncChannelRepository,
+        post_repository: AsyncPostRepository,
     ):
         self._parser = channel_parser
         self._vectorstore = vectorstore_repository
@@ -126,7 +129,7 @@ class ChannelService:
         async for doc in self._parser.parse_channel_posts_stream(
             channel,
             limit=limit,
-            offset_date=offset_date,
+            # offset_date=offset_date,
         ):
             if doc.metadata.message_id:
                 exists = await self._post_repo.exists(

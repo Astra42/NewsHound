@@ -39,6 +39,9 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
         _embedding_service: сервис для создания эмбеддингов
     """
 
+    # Namespace UUID для генерации детерминированных UUID из строковых ID
+    _NAMESPACE_UUID = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
     def __init__(
         self,
         embedding_service: IEmbeddingService,
@@ -65,6 +68,17 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
         except Exception:
             raise VectorStoreConnectionException(self._host, self._port)
 
+    def _string_to_uuid(self, string_id: str) -> str:
+        """Преобразовать строковый ID в UUID (детерминированный).
+        
+        Args:
+            string_id: строковый ID документа
+            
+        Returns:
+            UUID строка в формате для Qdrant
+        """
+        return str(uuid.uuid5(self._NAMESPACE_UUID, string_id))
+
     # =========================================================================
     # CRUD операции
     # =========================================================================
@@ -89,16 +103,19 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
                 doc.embedding = self._embedding_service.embed_query(doc.content)
 
             # Генерируем ID если нет
-            doc_id = doc.id or str(uuid.uuid4())
+            doc_id_str = doc.id or str(uuid.uuid4())
+            # Преобразуем строковый ID в UUID для Qdrant
+            qdrant_id = self._string_to_uuid(doc_id_str)
 
-            # Подготавливаем payload
+            # Подготавливаем payload (сохраняем оригинальный ID)
             payload = {
                 "content": doc.content,
+                "original_id": doc_id_str,  # Сохраняем оригинальный ID
                 **doc.metadata.model_dump(),
             }
 
             point = PointStruct(
-                id=doc_id,
+                id=qdrant_id,  # Используем UUID вместо строки
                 vector=doc.embedding,
                 payload=payload,
             )
@@ -144,9 +161,11 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
             количество удалённых документов
         """
         if document_ids:
+            # Преобразуем строковые ID в UUID
+            qdrant_ids = [self._string_to_uuid(doc_id) for doc_id in document_ids]
             self._client.delete(
                 collection_name=self._collection_name,
-                points_selector=document_ids,
+                points_selector=qdrant_ids,
             )
             return len(document_ids)
 
@@ -170,9 +189,11 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
         Получение документа по ID.
         """
         try:
+            # Преобразуем строковый ID в UUID для поиска
+            qdrant_id = self._string_to_uuid(document_id)
             points = self._client.retrieve(
                 collection_name=self._collection_name,
-                ids=[document_id],
+                ids=[qdrant_id],
                 with_payload=True,
                 with_vectors=True,
             )
@@ -182,12 +203,15 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
 
             point = points[0]
             payload = point.payload or {}
+            
+            # Используем оригинальный ID из payload, если есть
+            original_id = payload.get("original_id", str(point.id))
 
             return Document(
-                id=str(point.id),
+                id=original_id,  # Возвращаем оригинальный ID
                 content=payload.get("content", ""),
                 metadata=DocumentMetadata(
-                    **{k: v for k, v in payload.items() if k != "content"}
+                    **{k: v for k, v in payload.items() if k not in ("content", "original_id")}
                 ),
                 embedding=point.vector if hasattr(point, "vector") else None,
             )
@@ -265,12 +289,15 @@ class QdrantVectorStoreRepository(IVectorStoreRepository):
         search_results = []
         for hit in results.points:
             payload = hit.payload or {}
+            
+            # Используем оригинальный ID из payload, если есть
+            original_id = payload.get("original_id", str(hit.id))
 
             document = Document(
-                id=str(hit.id),
+                id=original_id,  # Используем оригинальный ID
                 content=payload.get("content", ""),
                 metadata=DocumentMetadata(
-                    **{k: v for k, v in payload.items() if k != "content"}
+                    **{k: v for k, v in payload.items() if k not in ("content", "original_id")}
                 ),
             )
 

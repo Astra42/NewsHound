@@ -133,7 +133,7 @@ class PostModel(Base):
     views: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     published_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     indexed_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
+        DateTime, default=lambda: datetime.utcnow()
     )
     vector_id: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True

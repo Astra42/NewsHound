@@ -1,6 +1,6 @@
 """Репозиторий для работы с постами в PostgreSQL."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from domain.document import Document, DocumentMetadata
@@ -97,13 +97,21 @@ class AsyncPostRepository(AsyncBaseRepository[PostModel], IPostRepository):
         )
 
     def _to_model(self, document: Document, channel_id: int) -> PostModel:
+        # Преобразуем datetime в naive datetime (PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
+        published_at = document.metadata.date
+        if published_at:
+            if published_at.tzinfo is not None:
+                # Если datetime aware (с timezone), преобразуем в UTC и убираем timezone
+                published_at = published_at.astimezone(timezone.utc).replace(tzinfo=None)
+            # Если уже naive - оставляем как есть
+        
         return PostModel(
             channel_id=channel_id,
             message_id=document.metadata.message_id or 0,
             content=document.content,
             url=document.metadata.url,
             views=document.metadata.views,
-            published_at=document.metadata.date,
+            published_at=published_at,
         )
 
     async def get_by_id(self, post_id: int) -> Optional[Document]:

@@ -22,7 +22,7 @@ from pyrogram.errors import (
     UsernameInvalid,
     UsernameNotOccupied,
 )
-from pyrogram.types import Chat, Message
+from pyrogram.types import Chat
 from services.interfaces.channel_parser import IChannelParser
 
 
@@ -148,6 +148,31 @@ class TelethonChannelParser(IChannelParser):
 
         return link.strip()
 
+    def _extract_text_from_message(self, message) -> Optional[str]:
+        """Извлечь текст из сообщения разных типов.
+
+        Поддерживает:
+        - message.text - обычный текст
+        - message.caption - подпись к медиа
+        - message.poll.question - вопрос опроса
+        - message.game.title - название игры
+
+        Args:
+            message: объект Message из Pyrogram
+
+        Returns:
+            текст сообщения или None, если текста нет
+        """
+        if message.text:
+            return message.text
+        if message.caption:
+            return message.caption
+        if message.poll and message.poll.question:
+            return message.poll.question
+        if message.game and message.game.title:
+            return message.game.title
+        return None
+
     async def get_channel_info(self, channel_link: str) -> Channel:
         await self.connect()
 
@@ -235,36 +260,87 @@ class TelethonChannelParser(IChannelParser):
             ) from e
 
         count = 0
+        seen_media_groups: set[int] = set()  # обработанные альбомы (media_group_id)
+
         try:
             async for message in client.get_chat_history(
                 chat.id,
                 limit=limit,
-                offset_date=offset_date,
             ):
-                if not isinstance(message, Message) or not message.text:
+                # 1) Фильтрация пустых/сервисных
+                if message.empty or message.service:
                     continue
 
+                # Корневое сообщение поста (для id/url/date/views в контексте канала)
+                root_message = message
+
+                # Текст поста (то, что индексируем)
+                text: Optional[str] = None
+
+                # 2) Альбомы: один "пост" == одна media group
+                if message.media_group_id:
+                    group_id = message.media_group_id
+                    if group_id in seen_media_groups:
+                        continue
+                    seen_media_groups.add(group_id)
+
+                    # Пытаемся получить все элементы альбома
+                    try:
+                        group_messages = await message.get_media_group()
+                    except Exception:
+                        # если не смогли получить группу - деградируем к одиночному сообщению
+                        group_messages = [message]
+
+                    # Ищем текст в любом элементе альбома (caption/text/poll/etc.)
+                    for msg in group_messages:
+                        extracted = self._extract_text_from_message(msg)
+                        if extracted:
+                            text = extracted
+                            break
+
+                    if not text:
+                        # Альбом без текста — пропускаем (или можно yield с пустым текстом, если нужно)
+                        continue
+
+                    # ВАЖНО: metadata и id/url всегда берём от root_message (первый элемент в истории),
+                    # а текст — из найденного элемента альбома.
+                    message_id_for_doc = root_message.id
+                    date_for_doc = root_message.date
+                    views_for_doc = root_message.views or 0
+
+                else:
+                    # 3) Обычное сообщение
+                    extracted = self._extract_text_from_message(message)
+                    if not extracted:
+                        continue
+
+                    text = extracted
+                    message_id_for_doc = message.id
+                    date_for_doc = message.date
+                    views_for_doc = message.views or 0
+
+                # 4) Создание документа
                 metadata = DocumentMetadata(
                     source="telegram",
                     channel=channel.username,
                     channel_id=channel.telegram_id,
-                    message_id=message.id,
-                    date=message.date,
-                    url=f"https://t.me/{channel.username}/{message.id}",
-                    views=message.views or 0,
+                    message_id=message_id_for_doc,
+                    date=date_for_doc,
+                    url=f"https://t.me/{channel.username}/{message_id_for_doc}",
+                    views=views_for_doc,
                 )
 
                 document = Document(
-                    id=f"{channel.username}_{message.id}",
-                    content=message.text,
+                    id=f"{channel.username}_{message_id_for_doc}",
+                    content=text,
                     metadata=metadata,
                 )
 
                 yield document
                 count += 1
-
                 if count >= limit:
                     break
+
         except Exception as e:
             raise TelegramParserException(
                 f"Ошибка при парсинге постов канала {channel.username}: {e}"

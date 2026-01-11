@@ -27,6 +27,11 @@ htmlcov/
 .deepeval_reports_jsonl/
 .deepeval_reports_jsonl.gz/
 
+pycache/
+__pycache__/
+__pycache__/*
+*/__pycache__/
+
 
 
 .env
