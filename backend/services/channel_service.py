@@ -109,7 +109,6 @@ class ChannelService:
         new_posts_count = await self._index_channel_posts(
             channel,
             posts_limit,
-            offset_date=channel.last_post_date,
         )
 
         channel.posts_count += new_posts_count
@@ -121,7 +120,6 @@ class ChannelService:
         self,
         channel: Channel,
         limit: int,
-        offset_date: datetime = None,
     ) -> int:
         documents: List[Document] = []
         last_post_date: Optional[datetime] = None
@@ -129,7 +127,6 @@ class ChannelService:
         async for doc in self._parser.parse_channel_posts_stream(
             channel,
             limit=limit,
-            # offset_date=offset_date,
         ):
             if doc.metadata.message_id:
                 exists = await self._post_repo.exists(

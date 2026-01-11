@@ -7,8 +7,7 @@
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import AsyncIterator, List, Optional
+from typing import AsyncIterator, List
 
 from domain.channel import Channel
 from domain.document import Document
@@ -35,7 +34,6 @@ class IChannelParser(ABC):
         self,
         channel: Channel,
         limit: int = 100,
-        offset_date: Optional[datetime] = None,
     ) -> List[Document]:
         """
         Парсинг постов канала.
@@ -43,7 +41,6 @@ class IChannelParser(ABC):
         Args:
             channel: канал для парсинга
             limit: максимальное количество постов
-            offset_date: дата, с которой начинать парсинг (None = с начала)
 
         Returns:
             список документов (постов)
@@ -55,7 +52,6 @@ class IChannelParser(ABC):
         self,
         channel: Channel,
         limit: int = 100,
-        offset_date: Optional[datetime] = None,
     ) -> AsyncIterator[Document]:
         """
         Стриминг постов канала (для больших объёмов).
@@ -63,7 +59,6 @@ class IChannelParser(ABC):
         Args:
             channel: канал для парсинга
             limit: максимальное количество постов
-            offset_date: дата, с которой начинать
 
         Yields:
             документы по одному

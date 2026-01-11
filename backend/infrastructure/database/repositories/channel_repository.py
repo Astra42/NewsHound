@@ -1,5 +1,6 @@
 """Репозиторий для работы с каналами в PostgreSQL."""
 
+from datetime import timezone
 from typing import List, Optional
 
 from domain.channel import Channel, ChannelStatus
@@ -155,7 +156,12 @@ class AsyncChannelRepository(AsyncBaseRepository[ChannelModel], IChannelReposito
                 else channel.status
             )
             model.posts_count = channel.posts_count
-            model.last_post_date = channel.last_post_date
+            # Преобразуем datetime в naive datetime (PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
+            last_post_date = channel.last_post_date
+            if last_post_date and last_post_date.tzinfo is not None:
+                # Если datetime aware (с timezone), преобразуем в UTC и убираем timezone
+                last_post_date = last_post_date.astimezone(timezone.utc).replace(tzinfo=None)
+            model.last_post_date = last_post_date
             await self._session.commit()
             await self._session.refresh(model)
             return self._to_domain(model)

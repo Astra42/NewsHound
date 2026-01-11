@@ -1,37 +1,31 @@
-"""Pyrogram парсер Telegram-каналов.
+"""
+Telethon парсер Telegram-каналов.
 
-Реализация парсера на основе библиотеки Pyrogram вместо Telethon.
+Реализация парсера на основе библиотеки Telethon.
 Обеспечивает совместимость с интерфейсом IChannelParser.
 """
 
 import re
-from datetime import datetime
 from pathlib import Path
 from typing import AsyncIterator, List, Optional
 
 from core.config import settings
-from core.exceptions import (
-    InvalidChannelLinkException,
-    TelegramParserException,
-)
+from core.exceptions import InvalidChannelLinkException, TelegramParserException
 from domain.channel import Channel, ChannelStatus
 from domain.document import Document, DocumentMetadata
-from pyrogram import Client
-from pyrogram.enums import ChatType
-from pyrogram.errors import (
-    UsernameInvalid,
-    UsernameNotOccupied,
-)
-from pyrogram.types import Chat
 from services.interfaces.channel_parser import IChannelParser
+from telethon import TelegramClient
+from telethon.errors import (
+    ChannelPrivateError,
+    UsernameInvalidError,
+    UsernameNotOccupiedError,
+)
+from telethon.tl.types import Channel as TelethonChannel
+from telethon.tl.types import Message
 
 
 class TelethonChannelParser(IChannelParser):
-    """Парсер Telegram-каналов на основе Pyrogram.
-
-    Класс сохраняет название TelethonChannelParser для обратной совместимости,
-    но использует библиотеку Pyrogram для работы с Telegram API.
-    """
+    """Парсер Telegram-каналов на основе Telethon."""
 
     def __init__(
         self,
@@ -43,101 +37,96 @@ class TelethonChannelParser(IChannelParser):
         self._api_hash = api_hash or settings.telegram_api_hash
 
         if Path("/app").exists() and Path("/app").is_dir():
-            # В Docker контейнере используем /app/sessions (volume из docker-compose.yml)
             sessions_dir = Path("/app/sessions")
         else:
             project_root = Path(__file__).parent.parent.parent
             sessions_dir = project_root / "sessions"
 
         sessions_dir.mkdir(parents=True, exist_ok=True)
-        # Pyrogram автоматически добавляет расширение .session
-        # Передаем путь без расширения, например: /app/sessions/session
         self._session_path = sessions_dir / session_name
 
-        # Pyrogram Client создается лениво в connect(), чтобы избежать проблем с event loop
-        # при инициализации в worker thread (FastAPI dependencies)
-        self._client: Optional[Client] = None
+        self._client: Optional[TelegramClient] = None
         self._is_connected = False
 
-    def _get_client(self) -> Client:
-        """Получить или создать Pyrogram Client.
-
-        Создается лениво, чтобы избежать проблем с event loop при инициализации
-        в worker thread (когда FastAPI вызывает __init__ через run_in_threadpool).
-        """
+    def _get_client(self) -> TelegramClient:
         if self._client is None:
-            # В Pyrogram клиент создается без параметров авторизации
-            # Авторизация происходит при вызове start()
-            self._client = Client(
-                name=str(self._session_path),
-                api_id=int(self._api_id)
-                if self._api_id and self._api_id.isdigit()
-                else None,
-                api_hash=self._api_hash,
+            api_id_int: Optional[int] = None
+            if self._api_id and str(self._api_id).isdigit():
+                api_id_int = int(self._api_id)
+
+            if not api_id_int or not self._api_hash:
+                raise TelegramParserException(
+                    "Не задан telegram_api_id/telegram_api_hash в настройках."
+                )
+
+            self._client = TelegramClient(
+                str(self._session_path),
+                api_id_int,
+                self._api_hash,
             )
         return self._client
 
     @property
     def is_connected(self) -> bool:
-        """Статус подключения."""
         if self._client is None:
             return False
-        return self._is_connected and self._client.is_connected
+        return self._is_connected and self._client.is_connected()
 
     async def connect(self) -> None:
-        """Подключение к Telegram API.
-
-        Проверяет наличие авторизованной сессии. Если сессии нет или она не авторизована,
-        просто выводит сообщение. Клиент все равно запускается для возможности работы.
-        Исключения не выбрасываются.
-        """
+        """Подключение к Telegram API с интерактивной авторизацией."""
         if self.is_connected:
             return
 
-        # Получаем или создаем клиент (ленивая инициализация)
         client = self._get_client()
-        session_file = Path(str(self._session_path) + ".session")
 
-        # Запускаем клиент, если он еще не запущен
-        if not client.is_connected:
-            try:
-                await client.start()
-            except Exception as e:
-                print(f"Не удалось запустить клиент Telegram: {e}")
-                return
-
-        # Проверяем, существует ли файл сессии
-        if not session_file.exists():
-            print(f"Файл сессии не найден: {session_file}")
-            print("Для работы необходимо создать и авторизовать сессию Telegram.")
-            return
-
-        # Проверяем, авторизована ли сессия
         try:
+            if not client.is_connected():
+                await client.connect()
+
+            if not await client.is_user_authorized():
+                # Пытаемся авторизовать сессию
+                phone = (
+                    settings.telegram_phone.strip() if settings.telegram_phone else None
+                )
+                code = (
+                    settings.telegram_code.strip() if settings.telegram_code else None
+                )
+
+                try:
+                    if phone:
+                        # Используем телефон из настроек
+                        if code:
+                            # Если код указан, передаем его
+                            await client.start(phone=phone, code=code)
+                        else:
+                            # Если код не указан, Telethon запросит его интерактивно
+                            await client.start(phone=phone)
+                    else:
+                        # Интерактивный ввод телефона (Telethon запросит телефон и код)
+                        await client.start()
+                except Exception as auth_error:
+                    error_msg = str(auth_error)
+                    raise TelegramParserException(
+                        f"Не удалось авторизовать сессию: {error_msg}. "
+                        f"Проверьте телефон ({phone or 'не указан'}) и код ({code or 'не указан'}) в настройках. "
+                        f"Для интерактивной авторизации убедитесь, что код доступа может быть получен в терминале."
+                    ) from auth_error
+
             me = await client.get_me()
             if me:
-                # Сессия существует и авторизована - устанавливаем флаг подключения
                 self._is_connected = True
                 return
-        except Exception:
-            # Сессия не авторизована или повреждена
-            print(f"Сессия не авторизована или повреждена: {session_file}")
-            print("Необходимо заново создать и авторизовать сессию Telegram.")
-            return
-
-        # Если дошли сюда - сессия не авторизована
-        print(f"Сессия существует, но не авторизована: {session_file}")
-        print("Необходимо авторизовать сессию Telegram.")
+        except TelegramParserException:
+            raise
+        except Exception as e:
+            raise TelegramParserException(f"Ошибка подключения к Telegram: {e}") from e
 
     async def disconnect(self) -> None:
-        """Отключение от Telegram API."""
-        if self._client is not None and self.is_connected:
-            if self._client.is_connected:
-                await self._client.stop()
-            self._is_connected = False
+        if self._client is not None and self._client.is_connected():
+            await self._client.disconnect()
+        self._is_connected = False
 
     def _extract_username(self, link: str) -> str:
-        """Извлечение username из ссылки."""
         if link.startswith("@"):
             return link[1:]
 
@@ -148,234 +137,137 @@ class TelethonChannelParser(IChannelParser):
 
         return link.strip()
 
-    def _extract_text_from_message(self, message) -> Optional[str]:
-        """Извлечь текст из сообщения разных типов.
+    def _extract_text_from_message(self, message: Message) -> Optional[str]:
+        """Извлечь текст из сообщения разных типов."""
+        # В Telethon текст находится в message.message
+        text = message.message
+        if text:
+            return text.strip() if text.strip() else None
 
-        Поддерживает:
-        - message.text - обычный текст
-        - message.caption - подпись к медиа
-        - message.poll.question - вопрос опроса
-        - message.game.title - название игры
+        # Для медиа-сообщений текст может быть в message.raw_text
+        if hasattr(message, "raw_text") and message.raw_text:
+            return message.raw_text.strip() if message.raw_text.strip() else None
 
-        Args:
-            message: объект Message из Pyrogram
-
-        Returns:
-            текст сообщения или None, если текста нет
-        """
-        if message.text:
-            return message.text
-        if message.caption:
-            return message.caption
-        if message.poll and message.poll.question:
-            return message.poll.question
-        if message.game and message.game.title:
-            return message.game.title
         return None
+
+    def _describe_media(self, message: Message) -> str:
+        """Описание медиа-типа сообщения."""
+        if not hasattr(message, "media") or not message.media:
+            return "text"
+
+        media_type = type(message.media).__name__
+        # Убираем префикс MessageMedia
+        if media_type.startswith("MessageMedia"):
+            media_type = media_type[12:].lower()
+        return media_type
 
     async def get_channel_info(self, channel_link: str) -> Channel:
         await self.connect()
-
-        username = self._extract_username(channel_link)
         client = self._get_client()
 
-        # Убеждаемся, что клиент запущен
-        if not client.is_connected:
-            try:
-                await client.start()
-            except Exception as e:
-                raise TelegramParserException(
-                    f"Не удалось запустить клиент Telegram: {e}"
-                ) from e
+        username = self._extract_username(channel_link)
 
         try:
-            chat: Chat = await client.get_chat(username)
+            entity = await client.get_entity(username)
 
-            # Проверяем, что это канал (channel) или супергруппа (supergroup)
-            # В Pyrogram каналы могут быть типа "channel" или "supergroup"
-            if chat.type not in (ChatType.CHANNEL, ChatType.SUPERGROUP):
-                raise InvalidChannelLinkException(
-                    f"{channel_link} не является каналом (это {chat.type})"
-                )
+            # Проверяем, что это канал
+            if not isinstance(entity, TelethonChannel):
+                raise InvalidChannelLinkException(f"{channel_link} не является каналом")
 
             return Channel(
-                telegram_id=chat.id,
-                username=chat.username or username,
-                title=chat.title,
-                description=chat.description,
-                link=f"https://t.me/{chat.username or username}",
+                telegram_id=entity.id,
+                username=entity.username or username,
+                title=entity.title,
+                description=getattr(entity, "about", None),
+                link=f"https://t.me/{entity.username or username}",
                 status=ChannelStatus.ACTIVE,
             )
 
-        except UsernameInvalid:
+        except UsernameInvalidError:
             raise InvalidChannelLinkException(
                 f"Неверный username канала: {channel_link}"
             )
-        except UsernameNotOccupied:
+        except UsernameNotOccupiedError:
             raise InvalidChannelLinkException(f"Канал не найден: {channel_link}")
+        except ChannelPrivateError:
+            raise InvalidChannelLinkException(
+                f"Канал приватный или недоступен: {channel_link}"
+            )
+        except InvalidChannelLinkException:
+            raise
         except Exception as e:
-            if "not found" in str(e).lower() or "could not find" in str(e).lower():
-                raise InvalidChannelLinkException(channel_link)
             raise TelegramParserException(
                 f"Ошибка получения информации о канале: {e}"
             ) from e
+
+    async def validate_channel(self, channel_link: str) -> bool:
+        try:
+            await self.get_channel_info(channel_link)
+            return True
+        except (InvalidChannelLinkException, TelegramParserException):
+            return False
 
     async def parse_channel_posts(
         self,
         channel: Channel,
         limit: int = 100,
-        offset_date: Optional[datetime] = None,
     ) -> List[Document]:
-        documents = []
-
-        async for doc in self.parse_channel_posts_stream(channel, limit, offset_date):
+        documents: List[Document] = []
+        async for doc in self.parse_channel_posts_stream(channel, limit):
             documents.append(doc)
-
         return documents
 
     async def parse_channel_posts_stream(
         self,
         channel: Channel,
         limit: int = 100,
-        offset_date: Optional[datetime] = None,
     ) -> AsyncIterator[Document]:
         await self.connect()
         client = self._get_client()
 
-        # Убеждаемся, что клиент запущен
-        if not client.is_connected:
-            try:
-                await client.start()
-            except Exception as e:
-                raise TelegramParserException(
-                    f"Не удалось запустить клиент Telegram: {e}"
-                ) from e
-
         try:
-            chat = await client.get_chat(channel.username)
+            entity = await client.get_entity(channel.username)
         except Exception as e:
             raise TelegramParserException(
                 f"Не удалось получить канал {channel.username}: {e}"
             ) from e
 
         yielded = 0
-        seen_media_groups: set[int] = set()
-
-        def _describe_media(msg) -> str:
-            """Более надежно определяем тип медиа для fallback."""
-            # 1) если есть enum media (Pyrogram), используем его
-            media_enum = getattr(msg, "media", None)
-            if media_enum:
-                try:
-                    return str(media_enum).split(".")[-1].lower()
-                except Exception:
-                    pass
-
-            # 2) иначе — по полям
-            parts = []
-            for attr in (
-                "photo",
-                "video",
-                "animation",
-                "document",
-                "audio",
-                "voice",
-                "sticker",
-                "poll",
-                "web_page",
-            ):
-                if getattr(msg, attr, None):
-                    parts.append(attr)
-
-            return ", ".join(parts) if parts else "unknown"
-
-        def _fallback_single(msg) -> str:
-            descr = _describe_media(msg)
-
-            fwd = ""
-            if getattr(msg, "forward_from_chat", None):
-                try:
-                    src = (
-                        msg.forward_from_chat.title
-                        or msg.forward_from_chat.username
-                        or "unknown"
-                    )
-                    fwd = f" | forward_from={src}"
-                except Exception:
-                    fwd = " | forward_from=unknown"
-
-            return f"[media_post: {descr}{fwd}]"
-
-        def _fallback_album(group_msgs) -> str:
-            type_counts: dict[str, int] = {}
-            for m in group_msgs:
-                t = _describe_media(m)
-                type_counts[t] = type_counts.get(t, 0) + 1
-            counts_str = "; ".join([f"{k} x{v}" for k, v in type_counts.items()])
-            return f"[album: {len(group_msgs)} items | {counts_str}]"
+        seen_grouped_ids: set[int] = set()
 
         try:
-            async for message in client.get_chat_history(
-                chat.id,
-                limit=limit,
-                # offset_date=offset_date,
+            async for message in client.iter_messages(
+                entity,
+                limit=limit
+                * 3,  # Запрашиваем больше, так как некоторые сообщения будут пропущены
             ):
-                # service/empty пропускаем
-                if message.empty or message.service:
+                # Пропускаем служебные сообщения (action сообщения)
+                if message.action is not None:
                     continue
 
-                content: Optional[str] = None
+                # -------- ALBUM (grouped messages) --------
+                if message.grouped_id:
+                    gid = message.grouped_id
+                    if gid in seen_grouped_ids:
+                        continue  # Альбом уже обработан
+                    seen_grouped_ids.add(gid)
 
-                # --------- ALBUM (media_group_id) ----------
-                if message.media_group_id:
-                    gid = message.media_group_id
-                    if gid in seen_media_groups:
-                        continue
-                    seen_media_groups.add(gid)
-
-                    # ВАЖНО: используем Client.get_media_group(), он надежнее message.get_media_group()
-                    # и корректно поднимает группу по chat_id/message_id.
-                    try:
-                        group_messages = await client.get_media_group(
-                            chat.id, message.id
-                        )
-                    except Exception:
-                        group_messages = [message]
-
-                    # Канонический "пост" для t.me/<channel>/<id>:
-                    # в UI ссылка обычно соответствует минимальному message.id в группе
-                    # (а в истории вы можете встретить не первый элемент).
-                    root_message = min(group_messages, key=lambda m: m.id)
-
-                    # Ищем текст в ЛЮБОМ элементе группы (caption/text/poll/game)
-                    for m in group_messages:
-                        extracted = self._extract_text_from_message(m)
-                        if extracted:
-                            content = extracted
-                            break
-
-                    # Если текста нет — всё равно создаём документ (чтобы "парсить любой пост")
-                    if not content:
-                        content = _fallback_album(group_messages)
-
-                    message_id_for_doc = root_message.id
-                    date_for_doc = root_message.date
-                    views_for_doc = root_message.views or 0
-
-                # --------- SINGLE MESSAGE ----------
-                else:
-                    extracted = self._extract_text_from_message(message)
-                    if extracted:
-                        content = extracted
-                    else:
-                        # текста нет — не пропускаем, а делаем fallback
-                        content = _fallback_single(message)
+                    # Используем первое сообщение группы для обработки
+                    # В Telethon получить всю группу сложно, поэтому используем только первое
+                    content = self._extract_text_from_message(message)
 
                     message_id_for_doc = message.id
                     date_for_doc = message.date
-                    views_for_doc = message.views or 0
+                    views_for_doc = getattr(message, "views", 0) or 0
 
-                # --------- BUILD DOCUMENT ----------
+                # -------- SINGLE --------
+                else:
+                    content = self._extract_text_from_message(message)
+
+                    message_id_for_doc = message.id
+                    date_for_doc = message.date
+                    views_for_doc = getattr(message, "views", 0) or 0
+
                 metadata = DocumentMetadata(
                     source="telegram",
                     channel=channel.username,
@@ -385,14 +277,15 @@ class TelethonChannelParser(IChannelParser):
                     url=f"https://t.me/{channel.username}/{message_id_for_doc}",
                     views=views_for_doc,
                 )
+                if content is None:
+                    continue
 
-                document = Document(
+                yield Document(
                     id=f"{channel.username}_{message_id_for_doc}",
                     content=content,
                     metadata=metadata,
                 )
 
-                yield document
                 yielded += 1
                 if yielded >= limit:
                     break
@@ -401,13 +294,6 @@ class TelethonChannelParser(IChannelParser):
             raise TelegramParserException(
                 f"Ошибка при парсинге постов канала {channel.username}: {e}"
             ) from e
-
-    async def validate_channel(self, channel_link: str) -> bool:
-        try:
-            await self.get_channel_info(channel_link)
-            return True
-        except (InvalidChannelLinkException, TelegramParserException):
-            return False
 
     async def __aenter__(self):
         await self.connect()
