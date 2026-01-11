@@ -17,6 +17,7 @@ from core.exceptions import (
 from domain.channel import Channel, ChannelStatus
 from domain.document import Document, DocumentMetadata
 from pyrogram import Client
+from pyrogram.enums import ChatType
 from pyrogram.errors import (
     UsernameInvalid,
     UsernameNotOccupied,
@@ -167,7 +168,7 @@ class TelethonChannelParser(IChannelParser):
 
             # Проверяем, что это канал (channel) или супергруппа (supergroup)
             # В Pyrogram каналы могут быть типа "channel" или "supergroup"
-            if chat.type not in ("channel", "supergroup"):
+            if chat.type not in (ChatType.CHANNEL, ChatType.SUPERGROUP):
                 raise InvalidChannelLinkException(
                     f"{channel_link} не является каналом (это {chat.type})"
                 )
@@ -235,7 +236,6 @@ class TelethonChannelParser(IChannelParser):
 
         count = 0
         try:
-            # В Pyrogram используем get_chat_history для получения сообщений
             async for message in client.get_chat_history(
                 chat.id,
                 limit=limit,

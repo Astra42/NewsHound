@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
         * LangChain + Mistral AI
         * Qdrant Vector Database
         * PostgreSQL
-        * Telethon (Telegram Parser)
+        * Pyrogram (Telegram Parser)
         """,
         version="1.0.0",
         docs_url="/docs",
