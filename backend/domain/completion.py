@@ -5,6 +5,7 @@
 from datetime import datetime
 from typing import List, Optional
 
+from domain.document import SearchResult
 from pydantic import BaseModel, Field
 
 
@@ -67,3 +68,6 @@ class SummaryResponse(BaseModel):
         default_factory=list, description="Каналы, вошедшие в саммари"
     )
     processing_time: float = Field(default=0.0, description="Время обработки (сек)")
+    filtered_results: List[SearchResult] = Field(
+        default_factory=list, description="Результаты фильтрации"
+    )

@@ -22,9 +22,7 @@ class Settings(BaseSettings):
     telegram_code: str = Field(default="", alias="TELEGRAM_CODE")
 
     llm_model: str = Field(default="mistral-small-latest", alias="LLM_MODEL")
-    embedding_model: str = Field(
-        default="sergeyzh/rubert-mini-frida", alias="EMBEDDING_MODEL"
-    )
+    embedding_model: str = Field(default="ai-forever/FRIDA", alias="EMBEDDING_MODEL")
     embedding_device: str = Field(default="cpu", alias="EMBEDDING_DEVICE")
 
     database_url: str = Field(
