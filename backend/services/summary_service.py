@@ -141,6 +141,7 @@ class SummaryService:
         return SummaryResponse(
             summary=summary_text,
             posts_processed=len(filtered_results),
+            filtered_results=filtered_results,
             period=period_str,
             topics=[],
             channels_included=channels_included,

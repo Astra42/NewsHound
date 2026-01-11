@@ -240,7 +240,6 @@ class TelethonChannelParser(IChannelParser):
         offset_date: Optional[datetime] = None,
     ) -> AsyncIterator[Document]:
         await self.connect()
-
         client = self._get_client()
 
         # Убеждаемся, что клиент запущен
@@ -253,73 +252,130 @@ class TelethonChannelParser(IChannelParser):
                 ) from e
 
         try:
-            chat: Chat = await client.get_chat(channel.username)
+            chat = await client.get_chat(channel.username)
         except Exception as e:
             raise TelegramParserException(
                 f"Не удалось получить канал {channel.username}: {e}"
             ) from e
 
-        count = 0
-        seen_media_groups: set[int] = set()  # обработанные альбомы (media_group_id)
+        yielded = 0
+        seen_media_groups: set[int] = set()
+
+        def _describe_media(msg) -> str:
+            """Более надежно определяем тип медиа для fallback."""
+            # 1) если есть enum media (Pyrogram), используем его
+            media_enum = getattr(msg, "media", None)
+            if media_enum:
+                try:
+                    return str(media_enum).split(".")[-1].lower()
+                except Exception:
+                    pass
+
+            # 2) иначе — по полям
+            parts = []
+            for attr in (
+                "photo",
+                "video",
+                "animation",
+                "document",
+                "audio",
+                "voice",
+                "sticker",
+                "poll",
+                "web_page",
+            ):
+                if getattr(msg, attr, None):
+                    parts.append(attr)
+
+            return ", ".join(parts) if parts else "unknown"
+
+        def _fallback_single(msg) -> str:
+            descr = _describe_media(msg)
+
+            fwd = ""
+            if getattr(msg, "forward_from_chat", None):
+                try:
+                    src = (
+                        msg.forward_from_chat.title
+                        or msg.forward_from_chat.username
+                        or "unknown"
+                    )
+                    fwd = f" | forward_from={src}"
+                except Exception:
+                    fwd = " | forward_from=unknown"
+
+            return f"[media_post: {descr}{fwd}]"
+
+        def _fallback_album(group_msgs) -> str:
+            type_counts: dict[str, int] = {}
+            for m in group_msgs:
+                t = _describe_media(m)
+                type_counts[t] = type_counts.get(t, 0) + 1
+            counts_str = "; ".join([f"{k} x{v}" for k, v in type_counts.items()])
+            return f"[album: {len(group_msgs)} items | {counts_str}]"
 
         try:
             async for message in client.get_chat_history(
                 chat.id,
                 limit=limit,
+                # offset_date=offset_date,
             ):
-                # 1) Фильтрация пустых/сервисных
+                # service/empty пропускаем
                 if message.empty or message.service:
                     continue
 
-                # Корневое сообщение поста (для id/url/date/views в контексте канала)
-                root_message = message
+                content: Optional[str] = None
 
-                # Текст поста (то, что индексируем)
-                text: Optional[str] = None
-
-                # 2) Альбомы: один "пост" == одна media group
+                # --------- ALBUM (media_group_id) ----------
                 if message.media_group_id:
-                    group_id = message.media_group_id
-                    if group_id in seen_media_groups:
+                    gid = message.media_group_id
+                    if gid in seen_media_groups:
                         continue
-                    seen_media_groups.add(group_id)
+                    seen_media_groups.add(gid)
 
-                    # Пытаемся получить все элементы альбома
+                    # ВАЖНО: используем Client.get_media_group(), он надежнее message.get_media_group()
+                    # и корректно поднимает группу по chat_id/message_id.
                     try:
-                        group_messages = await message.get_media_group()
+                        group_messages = await client.get_media_group(
+                            chat.id, message.id
+                        )
                     except Exception:
-                        # если не смогли получить группу - деградируем к одиночному сообщению
                         group_messages = [message]
 
-                    # Ищем текст в любом элементе альбома (caption/text/poll/etc.)
-                    for msg in group_messages:
-                        extracted = self._extract_text_from_message(msg)
+                    # Канонический "пост" для t.me/<channel>/<id>:
+                    # в UI ссылка обычно соответствует минимальному message.id в группе
+                    # (а в истории вы можете встретить не первый элемент).
+                    root_message = min(group_messages, key=lambda m: m.id)
+
+                    # Ищем текст в ЛЮБОМ элементе группы (caption/text/poll/game)
+                    for m in group_messages:
+                        extracted = self._extract_text_from_message(m)
                         if extracted:
-                            text = extracted
+                            content = extracted
                             break
 
-                    if not text:
-                        # Альбом без текста — пропускаем (или можно yield с пустым текстом, если нужно)
-                        continue
+                    # Если текста нет — всё равно создаём документ (чтобы "парсить любой пост")
+                    if not content:
+                        content = _fallback_album(group_messages)
 
-                    # ВАЖНО: metadata и id/url всегда берём от root_message (первый элемент в истории),
-                    # а текст — из найденного элемента альбома.
                     message_id_for_doc = root_message.id
                     date_for_doc = root_message.date
                     views_for_doc = root_message.views or 0
 
+                # --------- SINGLE MESSAGE ----------
                 else:
-                    # 3) Обычное сообщение
                     extracted = self._extract_text_from_message(message)
-                    if not extracted:
-                        continue
+                    if extracted:
+                        content = extracted
+                    else:
+                        # текста нет — не пропускаем, а делаем fallback
+                        content = _fallback_single(message)
 
-                    text = extracted
                     message_id_for_doc = message.id
                     date_for_doc = message.date
                     views_for_doc = message.views or 0
 
-                # 4) Создание документа
+                # --------- BUILD DOCUMENT ----------
                 metadata = DocumentMetadata(
                     source="telegram",
                     channel=channel.username,
@@ -332,13 +388,13 @@ class TelethonChannelParser(IChannelParser):
 
                 document = Document(
                     id=f"{channel.username}_{message_id_for_doc}",
-                    content=text,
+                    content=content,
                     metadata=metadata,
                 )
 
                 yield document
-                count += 1
-                if count >= limit:
+                yielded += 1
+                if yielded >= limit:
                     break
 
         except Exception as e:
