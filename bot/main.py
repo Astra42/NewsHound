@@ -9,7 +9,6 @@ from handlers import (
     list_channels,
     menu,
     remove_channel,
-    set_mode,
     start,
 )
 from settings import get_bot_token
@@ -30,7 +29,6 @@ async def main():
     app = Application.builder().token(get_bot_token()).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("set_mode", set_mode))
     app.add_handler(CommandHandler("add_channel", add_channel))
     app.add_handler(CommandHandler("remove_channel", remove_channel))
     app.add_handler(CommandHandler("list_channels", list_channels))

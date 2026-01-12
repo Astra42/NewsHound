@@ -118,6 +118,13 @@ class ChannelService:
                 logger.error(
                     f"Ошибка Telegram API при добавлении канала '{channel_link}': {message}"
                 )
+                # Если сообщение содержит информацию о сессии, делаем его более понятным
+                if "сессия" in message.lower() or "session" in message.lower():
+                    return (
+                        f"❌ {message}\n\n"
+                        f"💡 Решение: Удалите файл сессии Telegram (обычно в папке sessions/) "
+                        f"и перезапустите backend для переавторизации."
+                    )
                 return f"❌ {message}"
             return f"❌ Ошибка сервера: {e.response.status_code}"
         except Exception as e:

@@ -17,7 +17,6 @@ MAX_MESSAGE_LENGTH = 4096
 keyboard = [
     ["📰 Получить новости", "📋 Список каналов"],
     ["➕ Добавить канал", "➖ Удалить канал"],
-    ["⚙️ Выбрать режим"],
 ]
 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -105,15 +104,6 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выберите действие:", reply_markup=reply_markup)
 
 
-async def set_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"Команда /set_mode от пользователя {user.id}")
-    await update.message.reply_text(
-        "Выберите режим сбора новостей: ежедневный или еженедельный.",
-        reply_markup=reply_markup,
-    )
-
-
 async def list_channels(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"Запрос списка каналов от пользователя {user.id}")
@@ -151,6 +141,55 @@ async def remove_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Введите название канала для удаления (например: rbc_news или @rbc_news).",
         reply_markup=reply_markup,
     )
+
+
+async def handle_question(update: Update, context: ContextTypes.DEFAULT_TYPE, question: str):
+    """Обработчик свободных вопросов пользователя (RAG completion)."""
+    user = update.effective_user
+    logger.info(f"Вопрос от пользователя {user.id}: '{question[:100]}...'")
+
+    # Отправляем индикатор загрузки
+    status_msg = await update.message.reply_text(
+        "🤔 Ищу ответ на ваш вопрос...\nЭто может занять 10-30 секунд.",
+        reply_markup=reply_markup,
+    )
+
+    try:
+        answer = await _news_service.get_completion(user_id=user.id, question=question)
+        
+        # Пытаемся отредактировать сообщение
+        try:
+            await status_msg.edit_text(answer, reply_markup=reply_markup)
+            logger.info(f"Ответ на вопрос успешно отправлен пользователю {user.id}")
+        except BadRequest as e:
+            # Если редактирование не удалось, удаляем старое сообщение и отправляем новое
+            logger.warning(f"Не удалось отредактировать сообщение: {e}. Отправляю новое сообщение.")
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass  # Игнорируем ошибки при удалении
+            
+            # Отправляем новое сообщение (с разбивкой на части, если нужно)
+            await _send_long_message(update, answer, reply_markup)
+            logger.info(f"Ответ на вопрос успешно отправлен пользователю {user.id} (новое сообщение)")
+            
+    except Exception as e:
+        logger.error(f"Ошибка при получении ответа на вопрос для пользователя {user.id}: {e}")
+        try:
+            await status_msg.edit_text(
+                "❌ Не удалось получить ответ на ваш вопрос. Попробуйте позже.",
+                reply_markup=reply_markup,
+            )
+        except BadRequest:
+            # Если не удалось отредактировать, отправляем новое сообщение
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+            await update.message.reply_text(
+                "❌ Не удалось получить ответ на ваш вопрос. Попробуйте позже.",
+                reply_markup=reply_markup,
+            )
 
 
 async def get_news(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -263,11 +302,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "➖ Удалить канал" or text == "Удалить канал":
         await remove_channel(update, context)
 
-    elif text == "⚙️ Выбрать режим" or text == "Выбрать режим":
-        await set_mode(update, context)
-
     else:
-        logger.warning(f"Неизвестная команда от пользователя {user.id}: {text}")
-        await update.message.reply_text(
-            "Неизвестная команда. Используйте кнопки ниже.", reply_markup=reply_markup
-        )
+        # Обрабатываем как свободный вопрос (RAG completion)
+        await handle_question(update, context, text)
