@@ -162,24 +162,68 @@ class BackendClient(IBackendClient):
         
         logger.debug(f"POST {url} для user_id={user_id}, период: {start_date} - {end_date}, channels={channels}")
         try:
-            async with httpx.AsyncClient(timeout=summary_timeout, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                timeout=summary_timeout, 
+                follow_redirects=True,
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            ) as client:
                 response = await client.post(url, json=payload)
-                logger.debug(f"Response status: {response.status_code}, size: {len(response.content)} bytes")
+                logger.debug(
+                    f"Response status: {response.status_code}, "
+                    f"size: {len(response.content)} bytes, "
+                    f"headers: {dict(response.headers)}"
+                )
                 response.raise_for_status()
+                
+                # Проверяем Content-Type
+                content_type = response.headers.get("content-type", "")
+                if "application/json" not in content_type:
+                    logger.warning(
+                        f"Неожиданный Content-Type для user_id={user_id}: {content_type}. "
+                        f"Response text (first 500 chars): {response.text[:500]}"
+                    )
                 
                 # Пытаемся распарсить JSON с обработкой ошибок
                 try:
+                    # Используем response.content для получения сырых байтов
+                    # и декодируем вручную для лучшей обработки ошибок
+                    try:
+                        text = response.text
+                    except UnicodeDecodeError as decode_error:
+                        logger.error(
+                            f"Ошибка декодирования ответа для user_id={user_id}: {decode_error}. "
+                            f"Content-Type: {content_type}, "
+                            f"Response content (first 500 bytes): {response.content[:500]}"
+                        )
+                        raise httpx.UnexpectedResponse(
+                            f"Ошибка декодирования ответа: {decode_error}",
+                            request=response.request,
+                            response=response,
+                        )
+                    
+                    # Пытаемся распарсить JSON
                     result = response.json()
-                except Exception as json_error:
+                except ValueError as json_error:
+                    # ValueError возникает при ошибке парсинга JSON
                     logger.error(
                         f"Ошибка парсинга JSON ответа для user_id={user_id}: {json_error}. "
-                        f"Response text (first 500 chars): {response.text[:500]}"
+                        f"Content-Type: {content_type}, "
+                        f"Response length: {len(response.content)} bytes, "
+                        f"Response text (first 1000 chars): {text[:1000] if 'text' in locals() else 'N/A'}"
                     )
                     raise httpx.UnexpectedResponse(
                         f"Не удалось распарсить JSON ответ: {json_error}",
                         request=response.request,
                         response=response,
                     )
+                except Exception as json_error:
+                    logger.error(
+                        f"Неожиданная ошибка при парсинге JSON для user_id={user_id}: {json_error}. "
+                        f"Content-Type: {content_type}, "
+                        f"Response length: {len(response.content)} bytes, "
+                        f"Error type: {type(json_error).__name__}"
+                    )
+                    raise
                 
                 posts_count = result.get("posts_processed", 0)
                 logger.info(f"Саммари получено для user_id={user_id}: обработано {posts_count} постов")

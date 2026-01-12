@@ -26,7 +26,8 @@ logger = setup_logging(
 async def main():
     logger.info("Запуск NewsHound бота...")
 
-    app = Application.builder().token(get_bot_token()).build()
+    bot_token = get_bot_token()
+    app = Application.builder().token(bot_token).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("add_channel", add_channel))
@@ -50,6 +51,18 @@ async def main():
 
 if __name__ == "__main__":
     try:
+        # Проверяем токен до запуска async функции
+        try:
+            get_bot_token()
+        except ValueError as e:
+            logger.error(f"Ошибка конфигурации: {e}")
+            print(f"\n❌ Ошибка: {e}\n")
+            print("Для запуска бота необходимо:")
+            print("1. Создать бота через @BotFather в Telegram")
+            print("2. Получить токен бота")
+            print("3. Добавить BOT_TOKEN=ваш_токен в файл .env")
+            exit(1)
+        
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Бот остановлен пользователем")
