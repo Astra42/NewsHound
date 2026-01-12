@@ -45,27 +45,33 @@ class NewsService:
             )
             return summary_text
 
-        except httpx.ConnectError as e:
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
             logger.error(
-                f"Ошибка подключения при получении саммари для user_id={user_id}: {e}"
+                f"Ошибка соединения при получении саммари для user_id={user_id}: {e}"
             )
             return (
-                "❌ Не удалось подключиться к серверу \n"
-                "Пожалуйста, убедитесь, что сервис запущен на порту 8000."
+                "❌ Не удалось подключиться к серверу или соединение было разорвано.\n"
+                "Пожалуйста, убедитесь, что сервис запущен на порту 8000 и попробуйте позже."
             )
         except httpx.TimeoutException as e:
             logger.warning(f"Таймаут при получении саммари для user_id={user_id}: {e}")
             return (
-                "⏱️ Время ожидания ответа истекло.\n"
-                "Сервер обрабатывает слишком много данных или недоступен."
+                "⏱️ Время ожидания ответа истекло (более 5 минут).\n"
+                "Сервер обрабатывает слишком много данных. Попробуйте позже или уменьшите период запроса."
             )
         except httpx.HTTPStatusError as e:
             logger.error(
                 f"HTTP ошибка при получении саммари для user_id={user_id}: {e.response.status_code}"
             )
-            error_data = e.response.json()
-            detail = error_data.get("detail", {})
-            message = detail.get("message", f"Ошибка сервера: {e.response.status_code}")
+            try:
+                error_data = e.response.json()
+                detail = error_data.get("detail", {})
+                if isinstance(detail, dict):
+                    message = detail.get("message", f"Ошибка сервера: {e.response.status_code}")
+                else:
+                    message = str(detail) if detail else f"Ошибка сервера: {e.response.status_code}"
+            except Exception:
+                message = f"Ошибка сервера: {e.response.status_code}"
             return f"❌ {message}"
         except Exception as e:
             logger.exception(
@@ -101,13 +107,13 @@ class NewsService:
             )
             return answer
 
-        except httpx.ConnectError as e:
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
             logger.error(
-                f"Ошибка подключения при получении completion для user_id={user_id}: {e}"
+                f"Ошибка соединения при получении completion для user_id={user_id}: {e}"
             )
             return (
-                "❌ Не удалось подключиться к серверу \n"
-                "Пожалуйста, убедитесь, что сервис запущен."
+                "❌ Не удалось подключиться к серверу или соединение было разорвано.\n"
+                "Пожалуйста, убедитесь, что сервис запущен и попробуйте позже."
             )
         except httpx.TimeoutException as e:
             logger.warning(
@@ -121,9 +127,15 @@ class NewsService:
             logger.error(
                 f"HTTP ошибка при получении completion для user_id={user_id}: {e.response.status_code}"
             )
-            error_data = e.response.json()
-            detail = error_data.get("detail", {})
-            message = detail.get("message", f"Ошибка сервера: {e.response.status_code}")
+            try:
+                error_data = e.response.json()
+                detail = error_data.get("detail", {})
+                if isinstance(detail, dict):
+                    message = detail.get("message", f"Ошибка сервера: {e.response.status_code}")
+                else:
+                    message = str(detail) if detail else f"Ошибка сервера: {e.response.status_code}"
+            except Exception:
+                message = f"Ошибка сервера: {e.response.status_code}"
             return f"❌ {message}"
         except Exception as e:
             logger.exception(
