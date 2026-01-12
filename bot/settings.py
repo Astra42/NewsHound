@@ -14,7 +14,6 @@ def get_backend_url():
     Получить URL backend API.
 
     В Docker контейнере использует имя сервиса 'backend' из docker-compose.
-    При локальной разработке использует 'localhost'.
     """
     # Проверяем переменную окружения (может быть задана явно)
     backend_url = os.getenv("BACKEND_API_URL")

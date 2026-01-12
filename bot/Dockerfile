@@ -33,12 +33,17 @@ COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/bot
 
 RUN groupadd --gid 1000 appgroup && \
     useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
 
 COPY --chown=appuser:appgroup bot/ /app/bot/
+
+# Создаем директорию для логов с правильными правами
+RUN mkdir -p /app/bot/logs && \
+    chown -R appuser:appgroup /app/bot/logs
 
 WORKDIR /app/bot
 

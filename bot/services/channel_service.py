@@ -12,10 +12,10 @@ logger = get_logger(__name__)
 def escape_markdown_v2(text: str) -> str:
     """
     Экранировать специальные символы для Telegram Markdown V2.
-    
+
     Args:
         text: текст для экранирования
-        
+
     Returns:
         экранированный текст
     """
@@ -46,12 +46,14 @@ class ChannelService:
                 username = channel.get("username") or "unknown"
                 title = channel.get("title") or username
                 posts_count = channel.get("posts_count", 0)
-                
+
                 # Экранируем специальные символы Markdown в данных канала
                 # Преобразуем в строку и убираем None значения
                 escaped_title = escape_markdown_v2(str(title) if title else "unknown")
-                escaped_username = escape_markdown_v2(str(username) if username else "unknown")
-                
+                escaped_username = escape_markdown_v2(
+                    str(username) if username else "unknown"
+                )
+
                 message += f"{i}\\. {escaped_title} \\(@{escaped_username}\\) \\- {posts_count} постов\n"
 
             message += f"\n📊 Всего каналов: {len(channels)}"
@@ -94,7 +96,7 @@ class ChannelService:
             logger.error(
                 f"Ошибка соединения при добавлении канала '{channel_link}': {e}"
             )
-            return "❌ Не удалось подключиться к серверу или соединение было разорвано.\nПожалуйста, убедитесь, что сервис запущен и попробуйте позже."
+            return "❌ Не удалось подключиться к серверу или соединение было разорвано."
         except httpx.HTTPStatusError as e:
             logger.warning(
                 f"HTTP ошибка при добавлении канала '{channel_link}': {e.response.status_code}"

@@ -49,9 +49,14 @@ class NewsService:
             logger.error(
                 f"Ошибка соединения при получении саммари для user_id={user_id}: {e}"
             )
+            return "❌ Не удалось подключиться к серверу или соединение было разорвано."
+        except (httpx.UnexpectedResponse, httpx.RemoteProtocolError) as e:
+            logger.error(
+                f"Неожиданный ответ от сервера при получении саммари для user_id={user_id}: {e}"
+            )
             return (
-                "❌ Не удалось подключиться к серверу или соединение было разорвано.\n"
-                "Пожалуйста, убедитесь, что сервис запущен на порту 8000 и попробуйте позже."
+                "❌ Сервер вернул неожиданный ответ.\n"
+                "Возможно, произошла ошибка при генерации саммари. Попробуйте позже."
             )
         except httpx.TimeoutException as e:
             logger.warning(f"Таймаут при получении саммари для user_id={user_id}: {e}")
@@ -67,9 +72,15 @@ class NewsService:
                 error_data = e.response.json()
                 detail = error_data.get("detail", {})
                 if isinstance(detail, dict):
-                    message = detail.get("message", f"Ошибка сервера: {e.response.status_code}")
+                    message = detail.get(
+                        "message", f"Ошибка сервера: {e.response.status_code}"
+                    )
                 else:
-                    message = str(detail) if detail else f"Ошибка сервера: {e.response.status_code}"
+                    message = (
+                        str(detail)
+                        if detail
+                        else f"Ошибка сервера: {e.response.status_code}"
+                    )
             except Exception:
                 message = f"Ошибка сервера: {e.response.status_code}"
             return f"❌ {message}"
@@ -113,7 +124,6 @@ class NewsService:
             )
             return (
                 "❌ Не удалось подключиться к серверу или соединение было разорвано.\n"
-                "Пожалуйста, убедитесь, что сервис запущен и попробуйте позже."
             )
         except httpx.TimeoutException as e:
             logger.warning(
@@ -131,9 +141,15 @@ class NewsService:
                 error_data = e.response.json()
                 detail = error_data.get("detail", {})
                 if isinstance(detail, dict):
-                    message = detail.get("message", f"Ошибка сервера: {e.response.status_code}")
+                    message = detail.get(
+                        "message", f"Ошибка сервера: {e.response.status_code}"
+                    )
                 else:
-                    message = str(detail) if detail else f"Ошибка сервера: {e.response.status_code}"
+                    message = (
+                        str(detail)
+                        if detail
+                        else f"Ошибка сервера: {e.response.status_code}"
+                    )
             except Exception:
                 message = f"Ошибка сервера: {e.response.status_code}"
             return f"❌ {message}"

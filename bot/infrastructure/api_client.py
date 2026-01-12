@@ -166,7 +166,21 @@ class BackendClient(IBackendClient):
                 response = await client.post(url, json=payload)
                 logger.debug(f"Response status: {response.status_code}, size: {len(response.content)} bytes")
                 response.raise_for_status()
-                result = response.json()
+                
+                # Пытаемся распарсить JSON с обработкой ошибок
+                try:
+                    result = response.json()
+                except Exception as json_error:
+                    logger.error(
+                        f"Ошибка парсинга JSON ответа для user_id={user_id}: {json_error}. "
+                        f"Response text (first 500 chars): {response.text[:500]}"
+                    )
+                    raise httpx.UnexpectedResponse(
+                        f"Не удалось распарсить JSON ответ: {json_error}",
+                        request=response.request,
+                        response=response,
+                    )
+                
                 posts_count = result.get("posts_processed", 0)
                 logger.info(f"Саммари получено для user_id={user_id}: обработано {posts_count} постов")
                 return result
@@ -178,6 +192,9 @@ class BackendClient(IBackendClient):
             raise
         except httpx.TimeoutException as e:
             logger.error(f"Таймаут при получении саммари для user_id={user_id}: {e}")
+            raise
+        except (httpx.UnexpectedResponse, httpx.RemoteProtocolError) as e:
+            logger.error(f"Неожиданный ответ от сервера при получении саммари для user_id={user_id}: {e}")
             raise
         except Exception as e:
             logger.error(f"Ошибка при получении саммари для user_id={user_id}: {e}")
