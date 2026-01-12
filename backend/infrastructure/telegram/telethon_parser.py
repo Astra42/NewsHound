@@ -19,6 +19,7 @@ from telethon.errors import (
     ChannelPrivateError,
     UsernameInvalidError,
     UsernameNotOccupiedError,
+    TypeNotFoundError,
 )
 from telethon.tl.types import Channel as TelethonChannel
 from telethon.tl.types import Message
@@ -193,11 +194,33 @@ class TelethonChannelParser(IChannelParser):
             raise InvalidChannelLinkException(
                 f"Канал приватный или недоступен: {channel_link}"
             )
+        except (TypeNotFoundError, ValueError) as e:
+            # Ошибка "Could not find a matching Constructor ID" обычно возникает
+            # из-за устаревшей сессии или проблем с версией TL схемы
+            error_msg = str(e)
+            if "Constructor ID" in error_msg or "TLObject" in error_msg:
+                raise TelegramParserException(
+                    f"Ошибка при получении информации о канале {channel_link}. "
+                    f"Возможно, сессия устарела. Попробуйте удалить файл сессии и переавторизоваться. "
+                    f"Детали: {error_msg}"
+                ) from e
+            raise TelegramParserException(
+                f"Ошибка получения информации о канале: {error_msg}"
+            ) from e
         except InvalidChannelLinkException:
             raise
         except Exception as e:
+            error_msg = str(e)
+            # Проверяем, не является ли это ошибкой Constructor ID в другом формате
+            if "Constructor ID" in error_msg or "TLObject" in error_msg or "fe4478bd" in error_msg:
+                raise TelegramParserException(
+                    f"Ошибка при получении информации о канале {channel_link}. "
+                    f"Сессия Telethon может быть устаревшей. Попробуйте удалить файл сессии "
+                    f"(обычно в папке sessions/) и переавторизоваться. "
+                    f"Детали: {error_msg}"
+                ) from e
             raise TelegramParserException(
-                f"Ошибка получения информации о канале: {e}"
+                f"Ошибка получения информации о канале: {error_msg}"
             ) from e
 
     async def validate_channel(self, channel_link: str) -> bool:

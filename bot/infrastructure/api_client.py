@@ -76,8 +76,8 @@ class BackendClient(IBackendClient):
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP ошибка при получении каналов: {e.response.status_code} - {e.response.text}")
             raise
-        except httpx.ConnectError as e:
-            logger.error(f"Ошибка подключения к backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
+            logger.error(f"Ошибка соединения с backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
             raise
         except Exception as e:
             logger.error(f"Ошибка при получении каналов: {e}")
@@ -110,8 +110,8 @@ class BackendClient(IBackendClient):
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP ошибка при добавлении канала '{channel_link}': {e.response.status_code} - {e.response.text}")
             raise
-        except httpx.ConnectError as e:
-            logger.error(f"Ошибка подключения к backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
+            logger.error(f"Ошибка соединения с backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
             raise
         except Exception as e:
             logger.error(f"Ошибка при добавлении канала '{channel_link}': {e}")
@@ -133,8 +133,8 @@ class BackendClient(IBackendClient):
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP ошибка при удалении канала '{username}': {e.response.status_code} - {e.response.text}")
             raise
-        except httpx.ConnectError as e:
-            logger.error(f"Ошибка подключения к backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
+            logger.error(f"Ошибка соединения с backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
             raise
         except Exception as e:
             logger.error(f"Ошибка при удалении канала '{username}': {e}")
@@ -157,9 +157,12 @@ class BackendClient(IBackendClient):
         if channels:
             payload["channels"] = channels
 
+        # Увеличиваем таймаут для summary запросов (генерация может занимать много времени)
+        summary_timeout = 300.0  # 5 минут для генерации саммари
+        
         logger.debug(f"POST {url} для user_id={user_id}, период: {start_date} - {end_date}, channels={channels}")
         try:
-            async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=summary_timeout, follow_redirects=True) as client:
                 response = await client.post(url, json=payload)
                 logger.debug(f"Response status: {response.status_code}, size: {len(response.content)} bytes")
                 response.raise_for_status()
@@ -170,8 +173,11 @@ class BackendClient(IBackendClient):
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP ошибка при получении саммари для user_id={user_id}: {e.response.status_code} - {e.response.text}")
             raise
-        except httpx.ConnectError as e:
-            logger.error(f"Ошибка подключения к backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
+            logger.error(f"Ошибка соединения с backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
+            raise
+        except httpx.TimeoutException as e:
+            logger.error(f"Таймаут при получении саммари для user_id={user_id}: {e}")
             raise
         except Exception as e:
             logger.error(f"Ошибка при получении саммари для user_id={user_id}: {e}")
@@ -203,8 +209,8 @@ class BackendClient(IBackendClient):
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP ошибка при получении completion для user_id={user_id}: {e.response.status_code} - {e.response.text}")
             raise
-        except httpx.ConnectError as e:
-            logger.error(f"Ошибка подключения к backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError) as e:
+            logger.error(f"Ошибка соединения с backend API: {e}. Проверьте, что backend доступен по адресу {self._base_url}")
             raise
         except Exception as e:
             logger.error(f"Ошибка при получении completion для user_id={user_id}: {e}")
