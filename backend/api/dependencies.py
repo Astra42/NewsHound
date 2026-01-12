@@ -22,6 +22,7 @@ from infrastructure.telegram.telethon_parser import TelethonChannelParser
 from infrastructure.vectorstore.qdrant_store import QdrantVectorStoreRepository
 from services.channel_service import ChannelService
 from services.completion_service import CompletionService
+from services.evaluation_service import EvaluationService
 from services.interfaces.database import (
     IChannelRepository,
     IPostRepository,
@@ -90,6 +91,12 @@ def get_completion_service() -> CompletionService:
     llm = get_llm_service()
     retrieval = get_retrieval_service()
     return CompletionService(llm_service=llm, retrieval_service=retrieval)
+
+
+def get_evaluation_service() -> EvaluationService:
+    llm = get_llm_service()
+    retrieval = get_retrieval_service()
+    return EvaluationService(llm_service=llm, retrieval_service=retrieval)
 
 
 def get_summary_service() -> SummaryService:
